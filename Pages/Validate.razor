@@ -1,0 +1,97 @@
+﻿@page "/validate"
+@using H5_SSP3_BlazorApp.Data
+@using H5_SSP3_BlazorApp.Codes
+@using System.Text;
+@inject EncryptionService encryptionService;
+@inject HashingService hashingService;
+@inject TodoService todoService
+
+<PageTitle>Index</PageTitle>
+
+<h1>Validering</h1>
+
+<h1>@OutputIsValid</h1>
+
+@code{
+
+        [CascadingParameter]
+        private Task<AuthenticationState>? authenticationState { get; set; }
+
+    public static List<Data.Todo>? todos;
+    private static List<Data.Todo>? vtodos;
+
+    private string OutputIsValid { get; set; }
+
+    private string? Username { get; set; }
+
+    protected override async Task OnInitializedAsync(){
+
+
+        if (todos is null)
+            return;
+
+        if (authenticationState is null)
+            return;
+
+        var authState = await authenticationState;
+        var user = authState?.User;
+
+        if (user?.Identity is null || !user.Identity.IsAuthenticated)
+            return;
+
+        Username = user.Identity.Name;
+
+        vtodos = todoService.GetTodos(Username);
+
+        bool areEqual = true;
+
+        if(vtodos.Count() != todos.Count())
+        {
+            areEqual = false;
+
+        }else
+        {
+            for (int i = 0; i < vtodos.Count(); i++)
+            {
+
+                    if(!ValidateTodo(vtodos[i], todos[i]))
+                    {
+                        areEqual = false;
+                        break;
+                    }
+            }  
+        }
+        OutputIsValid =  areEqual ? "Listerne er ens" : "Listerne er ikke ens";
+        
+    }
+
+    private bool ValidateTodo(Data.Todo vTodo, Data.Todo todo)
+    {
+            var vvto = hashingService.BCryptString(vTodo.Owner);
+            var vto = hashingService.BCryptCompare(todo.Owner, vvto);
+
+            if (!vto)
+            {
+                return false;
+            }
+
+
+            var vvtt = hashingService.BCryptString(Encoding.UTF8.GetString(vTodo.Title));
+            var vtt = hashingService.BCryptCompare(Encoding.UTF8.GetString(todo.Title), vvtt);
+
+            if (!vtt)
+            {
+                return false;
+            }
+            var vvtd = hashingService.BCryptString(Encoding.UTF8.GetString(vTodo.Description));
+            var vtd = hashingService.BCryptCompare(Encoding.UTF8.GetString(todo.Description), vvtd);
+
+            if (!vtd)
+            {
+                return false;
+            }
+
+            return true;
+    }
+
+}

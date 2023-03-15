@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\H5-SSP3-BlazorApp.props" />
+</Project>

@@ -1,0 +1,125 @@
+﻿@page "/todo";
+@using H5_SSP3_BlazorApp.Data
+@using H5_SSP3_BlazorApp.Codes
+@using System.Text;
+@inject NavigationManager NavigationManager
+@inject EncryptionService encryptionService;
+@inject TodoService todoService
+
+
+<PageTitle>Dine Todos</PageTitle>
+<h1>Dine Todos</h1>
+
+@if(Username is not null){
+
+    @if (todos == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Description</th>
+                             <th></th>
+                             <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var todo in todos)
+                        {
+                            <tr>
+                                <td>@System.Text.Encoding.UTF8.GetString(encryptionService.Unprotect(todo.Title))</td>
+                                <td>@System.Text.Encoding.UTF8.GetString(encryptionService.Unprotect(todo.Description))</td>
+                                <td><button class="btn btn-outline-primary" @onclick="() => DeleteTodo(todo, true)">Fjern og gem</button> </td>
+                                <td><button class="btn  btn-outline-danger" @onclick="() => DeleteTodo(todo, false)">Fjern</button> </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <button class="btn btn-outline-primary" @onclick="() => GoToValidate()">Valider Todos</button>
+
+            </div>
+            <div class="col-md-2"></div>
+            <div class="col-md-4">
+                <h3>Tilføj Todo</h3>
+                <EditForm Model="@todoPlain" OnSubmit="@AddTodo">
+                    <label for="title">Titel</label><br>
+                    <InputText id="title" @bind-Value="todoPlain.Title" /><br>
+                    <label for="description">Beskrivelse</label><br>
+                    <InputText id="description" @bind-Value="todoPlain.Description" /><br>
+                    <br>
+                    <button class="btn btn-outline-primary" type="submit">Gem</button>
+                </EditForm>
+            </div>
+        </div>
+    }
+}
+
+@code {
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationState { get; set; }
+
+    private List<Data.Todo>? todos;
+
+
+    private string? Username { get; set; }
+
+    protected override async Task OnInitializedAsync(){
+
+        if (authenticationState is null)
+            return;
+
+        var authState = await authenticationState;
+        var user = authState?.User;
+
+        if (user?.Identity is null || !user.Identity.IsAuthenticated)
+            return;
+
+        Username = user.Identity.Name;
+
+        todos = todoService.GetTodos(Username);
+
+    }
+
+
+    private TodoPlain todoPlain = new();
+
+    private void AddTodo()
+    {
+
+        var val1 = encryptionService.Protect(Encoding.UTF8.GetBytes(todoPlain.Title));
+        var val2 = encryptionService.Protect(Encoding.UTF8.GetBytes(todoPlain.Description));
+
+        Data.Todo ytet = new Data.Todo(){
+                Owner = Username,
+                Title = val1,
+                Description = val2
+        };
+
+        todos.Add(ytet);
+        todoService.AddTodo(ytet);
+    }
+
+    private void DeleteTodo(Data.Todo todo, bool save)
+    {
+        todos.Remove(todo);
+        if (save)
+        {
+            todoService.RemoveTodo(todo);
+        }
+    }
+
+    private void GoToValidate ()
+    {
+        Validate.todos = todos; // ignorer dette
+
+        NavigationManager.NavigateTo("/validate");
+    }
+}
